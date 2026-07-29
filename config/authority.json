@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "status": "UNPROVISIONED",
+  "repository": "itcustomsolution/winrove-approval-authority",
+  "workflowPath": ".github/workflows/approve.yml",
+  "sourceRef": "refs/heads/main",
+  "policySourceCommitSha": null,
+  "policyPaths": [
+    ".github/workflows/approve.yml",
+    "src/public-approval.js",
+    "scripts/freeze-public-approval.js",
+    "scripts/bind-public-review.js"
+  ],
+  "dispatchActor": {
+    "login": null,
+    "id": null
+  },
+  "requiredReviewer": {
+    "login": "lu745",
+    "id": 197497370
+  },
+  "environment": {
+    "name": "winrove-staging-approval",
+    "id": null
+  },
+  "predicateType": "https://itcustomsolution.com/attestations/winrove-public-approval/v1",
+  "ownerAction": "Pin the immutable policy commit, dedicated GitHub App bot identity, and protected public staging environment ID. Keep UNPROVISIONED until all values are independently verified."
+}
+

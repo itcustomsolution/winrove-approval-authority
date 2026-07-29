@@ -1,0 +1,157 @@
+name: Winrove Digest-Only Staging Approval
+run-name: winrove-staging-approval-${{ inputs.approval_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      approval_id:
+        description: Opaque, nonce-derived approval identifier
+        required: true
+        type: string
+      commitment:
+        description: Salted commitment to the private authorization bytes
+        required: true
+        type: string
+      private_source_commit_sha:
+        description: Immutable private source commit digest
+        required: true
+        type: string
+      expires_at:
+        description: UTC expiry no more than 24 hours away
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: winrove-staging-approval-${{ inputs.approval_id }}
+  cancel-in-progress: false
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      public_digest: ${{ steps.digest.outputs.public_digest }}
+    steps:
+      - name: Check out the exact public policy commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20"
+      - name: Freeze digest-only public approval
+        env:
+          INPUT_APPROVAL_ID: ${{ inputs.approval_id }}
+          INPUT_COMMITMENT: ${{ inputs.commitment }}
+          INPUT_PRIVATE_SOURCE_COMMIT_SHA: ${{ inputs.private_source_commit_sha }}
+          INPUT_ENVIRONMENT: staging
+          INPUT_EXPIRES_AT: ${{ inputs.expires_at }}
+        run: node scripts/freeze-public-approval.js --out _approval/public-approval.json
+      - name: Publish the opaque commitment for owner review
+        id: digest
+        shell: bash
+        run: |
+          public_digest="$(sha256sum _approval/public-approval.json | awk '{print $1}')"
+          echo "public_digest=${public_digest}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Winrove staging approval"
+            echo
+            echo "Approval ID: \`${{ inputs.approval_id }}\`"
+            echo
+            echo "Commitment: \`${{ inputs.commitment }}\`"
+            echo
+            echo "Private source commit: \`${{ inputs.private_source_commit_sha }}\`"
+            echo
+            echo "Expires: \`${{ inputs.expires_at }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve exact pre-approval bytes
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: winrove-public-approval-${{ inputs.approval_id }}
+          path: _approval/public-approval.json
+          if-no-files-found: error
+          retention-days: 1
+
+  attest:
+    needs: freeze
+    runs-on: ubuntu-latest
+    environment:
+      name: winrove-staging-approval
+    permissions:
+      actions: read
+      attestations: write
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out the exact public policy commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20"
+      - name: Download exact pre-approval bytes
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: winrove-public-approval-${{ inputs.approval_id }}
+          path: .
+      - name: Refuse reruns or public-record mutation
+        shell: bash
+        run: |
+          test "$GITHUB_RUN_ATTEMPT" = "1"
+          test "$GITHUB_REF" = "refs/heads/main"
+          actual="$(sha256sum public-approval.json | awk '{print $1}')"
+          test "$actual" = "${{ needs.freeze.outputs.public_digest }}"
+      - name: Fetch exact protected-environment review history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/approvals" \
+            > review-history.json
+      - name: Bind Fela's review to the opaque commitment
+        run: >-
+          node scripts/bind-public-review.js
+          --approval public-approval.json
+          --review-history review-history.json
+          --out public-approval-predicate.json
+      - name: Attest the approved digest-only record
+        id: attest
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6
+        with:
+          subject-path: public-approval.json
+          predicate-type: https://itcustomsolution.com/attestations/winrove-public-approval/v1
+          predicate-path: public-approval-predicate.json
+          show-summary: true
+      - name: Preserve original verification material
+        shell: bash
+        env:
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          test -f "$BUNDLE_PATH"
+          cp "$BUNDLE_PATH" public-approval.sigstore.json
+          gh attestation trusted-root > trusted_root.jsonl
+          chmod 600 public-approval.json public-approval-predicate.json review-history.json public-approval.sigstore.json trusted_root.jsonl
+      - name: Export approval evidence only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: winrove-approved-${{ inputs.approval_id }}
+          path: |
+            public-approval.json
+            public-approval-predicate.json
+            review-history.json
+            public-approval.sigstore.json
+            trusted_root.jsonl
+          if-no-files-found: error
+          retention-days: 1
+

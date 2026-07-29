@@ -1,0 +1,13 @@
+{
+  "name": "winrove-approval-authority",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Digest-only public approval authority for Winrove staging",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
+

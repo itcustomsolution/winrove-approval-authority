@@ -1,0 +1,5 @@
+node_modules/
+_approval/
+*.sigstore.json
+trusted_root.jsonl
+
