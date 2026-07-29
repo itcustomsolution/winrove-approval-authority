@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "status": "UNPROVISIONED",
+  "status": "PROVISIONED",
   "repository": "itcustomsolution/winrove-approval-authority",
   "workflowPath": ".github/workflows/approve.yml",
   "sourceRef": "refs/heads/main",
-  "policySourceCommitSha": null,
+  "policySourceCommitSha": "3d387cf4e7e9777d9957b5d89ddb051bbd365e30",
   "policyPaths": [
     ".github/workflows/approve.yml",
     "src/public-approval.js",
@@ -12,8 +12,8 @@
     "scripts/bind-public-review.js"
   ],
   "dispatchActor": {
-    "login": null,
-    "id": null
+    "login": "winrove-approval-dispatcher-itc[bot]",
+    "id": 310719395
   },
   "requiredReviewer": {
     "login": "lu745",
@@ -21,9 +21,8 @@
   },
   "environment": {
     "name": "winrove-staging-approval",
-    "id": null
+    "id": 18966847827
   },
   "predicateType": "https://itcustomsolution.com/attestations/winrove-public-approval/v1",
-  "ownerAction": "Pin the immutable policy commit, dedicated GitHub App bot identity, and protected public staging environment ID. Keep UNPROVISIONED until all values are independently verified."
+  "ownerAction": "No owner action is required for provisioning. Each staging approval still requires Fela's protected-environment review."
 }
-
