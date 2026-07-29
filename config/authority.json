@@ -4,7 +4,7 @@
   "repository": "itcustomsolution/winrove-approval-authority",
   "workflowPath": ".github/workflows/approve.yml",
   "sourceRef": "refs/heads/main",
-  "policySourceCommitSha": "3d387cf4e7e9777d9957b5d89ddb051bbd365e30",
+  "policySourceCommitSha": "792c1b8a7275ec757d469e5714a983a1ba5cbdd8",
   "policyPaths": [
     ".github/workflows/approve.yml",
     "src/public-approval.js",
