@@ -154,4 +154,23 @@ jobs:
             trusted_root.jsonl
           if-no-files-found: error
           retention-days: 1
-
+      - name: Create a backend-only callback token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349
+        with:
+          app-id: ${{ secrets.WINROVE_APPROVAL_APP_ID }}
+          private-key: ${{ secrets.WINROVE_APPROVAL_APP_PRIVATE_KEY }}
+          owner: itcustomsolution
+          repositories: winrove-backend
+          permission-actions: write
+      - name: Dispatch the private evidence collector
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APPROVAL_ID: ${{ inputs.approval_id }}
+        shell: bash
+        run: |
+          gh workflow run ai-assisted-collect.yml \
+            --repo itcustomsolution/winrove-backend \
+            --ref main \
+            -f "approval_id=${APPROVAL_ID}" \
+            -f "public_run_id=${GITHUB_RUN_ID}"
