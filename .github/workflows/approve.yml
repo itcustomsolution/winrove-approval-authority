@@ -55,19 +55,24 @@ jobs:
       - name: Publish the opaque commitment for owner review
         id: digest
         shell: bash
+        env:
+          APPROVAL_ID: ${{ inputs.approval_id }}
+          COMMITMENT: ${{ inputs.commitment }}
+          PRIVATE_SOURCE_COMMIT_SHA: ${{ inputs.private_source_commit_sha }}
+          EXPIRES_AT: ${{ inputs.expires_at }}
         run: |
           public_digest="$(sha256sum _approval/public-approval.json | awk '{print $1}')"
           echo "public_digest=${public_digest}" >> "$GITHUB_OUTPUT"
           {
             echo "## Winrove staging approval"
             echo
-            echo "Approval ID: \`${{ inputs.approval_id }}\`"
+            echo "Approval ID: \`${APPROVAL_ID}\`"
             echo
-            echo "Commitment: \`${{ inputs.commitment }}\`"
+            echo "Commitment: \`${COMMITMENT}\`"
             echo
-            echo "Private source commit: \`${{ inputs.private_source_commit_sha }}\`"
+            echo "Private source commit: \`${PRIVATE_SOURCE_COMMIT_SHA}\`"
             echo
-            echo "Expires: \`${{ inputs.expires_at }}\`"
+            echo "Expires: \`${EXPIRES_AT}\`"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Preserve exact pre-approval bytes
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

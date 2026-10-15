@@ -134,3 +134,16 @@ test('review-history parser rejects duplicate JSON keys before binding', () => {
     /duplicate key state/i,
   );
 });
+
+test('exploit: shell metacharacters in expires_at are rejected before the summary step', () => {
+  // Date.parse accepts "2026-10-16 $(id)"; it used to reach a bash run: block via ${{ inputs.expires_at }}.
+  const now = Date.parse('2026-10-15T12:00:00Z');
+  for (const bad of ['2026-10-16 $(id)', '10/16/2026 (x$(id))', 'Fri Oct 16 2026 10:00:00 GMT-0400 (EDT $(id))']) {
+    assert.throws(() => freezePublicApprovalFromEnvironment({
+      env: { ...environment(), INPUT_EXPIRES_AT: bad },
+      authority: authority(),
+      now,
+      comparePolicy: () => true,
+    }), /invalid/);
+  }
+});
