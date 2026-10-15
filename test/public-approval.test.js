@@ -23,7 +23,7 @@ function authority() {
       id: 9001,
     },
     requiredReviewer: {
-      login: 'lu745',
+      login: 'Lu-ITC',
       id: 197497370,
     },
     environment: {
@@ -77,7 +77,7 @@ test('freeze emits only opaque public bindings and rejects any non-App dispatche
   assert.equal(frozen.bytes.includes(Buffer.from('cohort')), false);
   assert.equal(frozen.bytes.includes(Buffer.from('deployment')), false);
   assert.throws(() => freezePublicApprovalFromEnvironment({
-    env: { ...environment(), GITHUB_ACTOR: 'lu745', GITHUB_ACTOR_ID: '197497370' },
+    env: { ...environment(), GITHUB_ACTOR: 'Lu-ITC', GITHUB_ACTOR_ID: '197497370' },
     authority: authority(),
     now: Date.parse('2026-07-29T16:00:00.000Z'),
     comparePolicy: () => true,
@@ -101,7 +101,7 @@ test('review binding requires exactly one approval from Fela for the exact envir
   const approved = [{
     state: 'approved',
     environments: [{ id: 5001, name: 'winrove-staging-approval' }],
-    user: { login: 'lu745', id: 197497370, type: 'User', site_admin: false },
+    user: { login: 'Lu-ITC', id: 197497370, type: 'User', site_admin: false },
   }];
   const bound = bindPublicApprovalReview({
     publicBytes: frozen.bytes,
@@ -116,7 +116,7 @@ test('review binding requires exactly one approval from Fela for the exact envir
     environmentId: 5001,
     environmentName: 'winrove-staging-approval',
     reviewerId: 197497370,
-    reviewerLogin: 'lu745',
+    reviewerLogin: 'Lu-ITC',
     state: 'approved',
   });
   assert.throws(() => bindPublicApprovalReview({
@@ -128,9 +128,79 @@ test('review binding requires exactly one approval from Fela for the exact envir
   }), /exactly one/i);
 });
 
+for (const { name, user, accepted } of [
+  {
+    name: 'accepts Lu-ITC with numeric id 197497370',
+    user: { login: 'Lu-ITC', id: 197497370 },
+    accepted: true,
+  },
+  {
+    name: 'rejects the stale login with the correct id',
+    user: { login: 'lu' + '745', id: 197497370 },
+    accepted: false,
+  },
+  {
+    name: 'rejects Lu-ITC with the wrong id',
+    user: { login: 'Lu-ITC', id: 1 },
+    accepted: false,
+  },
+  {
+    name: 'rejects Lu-ITC with a string id',
+    user: { login: 'Lu-ITC', id: '197497370' },
+    accepted: false,
+  },
+]) {
+  test(`review binding ${name}`, () => {
+    const config = require('../config/authority.json');
+    const frozen = freezePublicApprovalFromEnvironment({
+      env: {
+        ...environment(),
+        GITHUB_ACTOR: config.dispatchActor.login,
+        GITHUB_ACTOR_ID: String(config.dispatchActor.id),
+      },
+      authority: config,
+      now: Date.parse('2026-07-29T16:00:00.000Z'),
+      comparePolicy: () => true,
+    });
+    const bind = () => bindPublicApprovalReview({
+      publicBytes: frozen.bytes,
+      reviewHistory: [{
+        state: 'approved',
+        environments: [{ id: config.environment.id, name: config.environment.name }],
+        user: { ...user, type: 'User', site_admin: false },
+      }],
+      authority: config,
+      runId: 7001,
+      runAttempt: 1,
+    });
+
+    if (accepted) {
+      const bound = bind();
+      assert.equal(bound.record.publicApprovalSha256, frozen.digest);
+      assert.equal(bound.record.review.reviewerLogin, 'Lu-ITC');
+      assert.equal(bound.record.review.reviewerId, 197497370);
+    } else {
+      assert.throws(bind, /exactly one protected-environment approval/i);
+    }
+  });
+}
+
 test('review-history parser rejects duplicate JSON keys before binding', () => {
   assert.throws(
     () => parseStrictJson('[{"state":"approved","state":"rejected"}]', 'review history'),
     /duplicate key state/i,
   );
+});
+
+test('exploit: shell metacharacters in expires_at are rejected before the summary step', () => {
+  // Date.parse accepts "2026-10-16 $(id)"; it used to reach a bash run: block via ${{ inputs.expires_at }}.
+  const now = Date.parse('2026-10-15T12:00:00Z');
+  for (const bad of ['2026-10-16 $(id)', '10/16/2026 (x$(id))', 'Fri Oct 16 2026 10:00:00 GMT-0400 (EDT $(id))']) {
+    assert.throws(() => freezePublicApprovalFromEnvironment({
+      env: { ...environment(), INPUT_EXPIRES_AT: bad },
+      authority: authority(),
+      now,
+      comparePolicy: () => true,
+    }), /invalid/);
+  }
 });

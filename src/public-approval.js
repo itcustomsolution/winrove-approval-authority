@@ -4,6 +4,8 @@ const crypto = require('node:crypto');
 
 const HEX40 = /^[a-f0-9]{40}$/;
 const HEX64 = /^[a-f0-9]{64}$/;
+// Strict UTC ISO-8601 only. Date.parse alone accepts strings like "2026-10-16 $(id)".
+const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -136,6 +138,7 @@ function freezePublicApprovalFromEnvironment({
     || !HEX64.test(env.INPUT_COMMITMENT || '')
     || !HEX40.test(env.INPUT_PRIVATE_SOURCE_COMMIT_SHA || '')
     || !HEX40.test(env.GITHUB_SHA || '')
+    || !ISO_UTC.test(env.INPUT_EXPIRES_AT || '')
     || !Number.isFinite(expiresAt)
     || expiresAt <= now
     || expiresAt > now + (24 * 60 * 60 * 1000)
